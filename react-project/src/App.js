@@ -1,11 +1,16 @@
-import React, {useState, useEffect, useRef} from "react"
+import React, { useState, useCallback, useEffect, useRef, useReducer } from "react"
 import useSemiPersistentState from "./hooks/UseSemiPersistentState"
-import logo from './logo.svg';
-import './App.css';
+import storiesReducer from "./reducers/storiesReducer"
+import SearchForm from "./components/SearchForm"
+import List from "./components/List"
+import axios from 'axios'
+import styles from './App.module.css';
 const title = "Matias"
 const getTitle = () => {
   return title
 }
+const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query='
+
 
 
 const App = () => {
@@ -29,98 +34,113 @@ const App = () => {
 
   ]
 
-  const getAsyncStories = () =>
-  Promise.resolve({data:{stories: initialStories}})
+  // const getAsyncStories = () =>
+  //   new Promise(resolve =>
+  //     setTimeout(
+  //       () => resolve({ data: { stories: initialStories } }),
+  //       2000
+  //     )
+  //   )
   //The custom hook takes in a key and initial state
   const [searchTerm, setSearchTerm] = useSemiPersistentState('search', 'React');
-  const [stories, setStories] = useState(initialStories)
+  // You can combine the following in the useReducer hook to prevent impossible states
+  //this is better practice
+  // const [isLoading, setIsLoading] = useState(false)
+  // const [isError, setIsError] = useState(false)
+  const [stories, dispatchStories] = useReducer(storiesReducer,
+    { data: [], isLoading: false, isError: false });
+
+  const [url, setUrl] = React.useState(
+    `${API_ENDPOINT}${searchTerm}`
+  )
+
+  const handleFetchStories = useCallback(async () => {
+    dispatchStories({ type: 'STORIES_FETCH_INIT' })
+    try {
+      const result = await axios.get(url);
+
+      dispatchStories({
+        type: "STORIES_FETCH_SUCCESS",
+        payload: result.data.hits,
+      });
+    } catch{
+      dispatchStories({ type: 'STORIES_FETCH_FAILURE' });
+    }
+  }, [url]);
+
+
+  useEffect(() => {
+    handleFetchStories();
+  }, [handleFetchStories])
+
 
   const handleRemoveStory = item => {
-    const newStories = stories.filter(
-      story => item.objectID !== story.objectID
-    )
-    setStories(newStories);
+    dispatchStories({
+      type: 'REMOVE_STORY',
+      payload: item,
+    })
   }
-  
-  const handleSearch = event =>{
+
+  const handleSearchInput = event => {
     setSearchTerm(event.target.value);
-  } 
-  const searchedStories = stories.filter(story => 
+  }
+
+  const handleSearchSubmit = (event) => {
+    setUrl(`${API_ENDPOINT}${searchTerm}`);
+    event.preventDefault();
+  }
+  const searchedStories = stories.data.filter(story =>
     story.title.toLowerCase().includes(searchTerm.toLowerCase()))
 
-  
+
   return (
-    <div className="App">
+    <div className={styles.container}>
       <h1>Hello {getTitle()}</h1>
-      <InputWithLabel 
-      id="search" 
-      //below is the same as isFocused = {true}
-      isFocused
-      onInputChange={handleSearch} 
-      value={searchTerm}>
-    <strong>Search: </strong>
-      </InputWithLabel>
+      <h1 className={styles.headlinePrimary}>My Hacker Stories</h1>
+      <SearchForm 
+      searchTerm={searchTerm}
+      onSearchInput={handleSearchInput}
+      onSearchSubmit={handleSearchSubmit}
+      />
+     
+    
       <hr />
-      <List list={searchedStories} onRemoveItem={handleRemoveStory}/>
+      {stories.isError && <p>Something went wrong ...</p>}
+      {stories.isLoading ? (
+        <p>Loading ...</p>
+      ) : (
+
+          <List
+            list={stories.data}
+            onRemoveItem={handleRemoveStory}
+          />
+
+        )
+
+      }
     </div>
   )
 };
 
 
+// const Item = ({ item, onRemoveItem }) => {
+//   return (
+//     <>
+//       <span>
+//         <a href={item.url}> {item.title} </a>
+//       </span>
+//       <span>{item.author} </span>
+//       <span>{item.num_comments} </span>
+//       <span>{item.points} </span>
+//       <span>
+//         <button type="button" onClick={() => onRemoveItem(item)}>
+//           Dismiss
+//       </button>
+//       </span>
+//     </>
 
-function InputWithLabel ({
-  id, label, value, type ="text", onInputChange, isFocused, children}){
-  //imperative way of setting focus on the input field
-  //useREf returns a ref object which stays intact over the component's lifetime but it has a property called current which 
-  //in contrast to the ref object can be changed.
-  //the ref object is passed to the ref attribute which set the element instance to be the current property
-  const inputRef = useRef();
+//   )
 
-  useEffect(()=>{
-    // only focus when isFocused is true and current property is existent
-    if(isFocused && inputRef.current){
-      inputRef.current.focus();
-    }
-  }, [isFocused])
-
-  return(
-    <>
-       <label htmlFor={id}>{children}</label>
-      <input ref={inputRef} onChange={onInputChange} value={value} id={id} type={type} autoFocus={isFocused}/>
-      <p>Searching for <strong>{value}</strong></p>
-    </>
-  )
-}
-
-
-const List = ({list, onRemoveItem}) => (
-  list.map(
-    //rest operator
-    item => (
-      //spread operator or you can just pass the whole item obj as a prop
-      <Item key = {item.objectID} item={item} onRemoveItem={onRemoveItem}  />
-    ))
-
-)
-
-const Item = ({item, onRemoveItem}) =>{
-  return(
-    <>
-    <span>
-      <a href={item.url}> {item.title} </a>
-    </span>
-    <span>{item.author} </span>
-    <span>{item.num_comments} </span>
-    <span>{item.points} </span>
-    <span>
-      <button type ="button" onClick = {()=>onRemoveItem(item)}>
-        Dismiss
-      </button>
-    </span>
-  </>
-
-  )
-
-}
+// }
 
 export default App;
