@@ -11,28 +11,27 @@ const getTitle = () => {
 }
 const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query='
 
+type Story ={
+  objectID: string;
+  url: string;
+  title: string;
+  author: string;
+  num_comments: number;
+  points: number;
+};
+
+type Stories = Array<Story>;
+
+// const getSumComments = Stories =>{
+  
+//   return Stories.data.reduce(
+//     (result, value) => result + value.num_comments,
+//     0
+//   );
+// };
 
 
 const App = () => {
-  const initialStories = [
-    {
-      title: 'React',
-      url: 'https://reactjs.org',
-      author: 'Jordan Walke',
-      num_comments: 3,
-      points: 4,
-      objectID: 0,
-    },
-    {
-      title: 'Redux',
-      url: 'https://reactjs.org',
-      author: 'Dan Abramov',
-      num_comments: 2,
-      points: 4,
-      objectID: 1,
-    },
-
-  ]
 
   // const getAsyncStories = () =>
   //   new Promise(resolve =>
@@ -54,6 +53,10 @@ const App = () => {
     `${API_ENDPOINT}${searchTerm}`
   )
 
+  // const sumComments = React.useMemo(() => getSumComments(stories),[
+  //   stories,
+  // ])
+
   const handleFetchStories = useCallback(async () => {
     dispatchStories({ type: 'STORIES_FETCH_INIT' })
     try {
@@ -74,23 +77,21 @@ const App = () => {
   }, [handleFetchStories])
 
 
-  const handleRemoveStory = item => {
+  const handleRemoveStory = (item: Story) => {
     dispatchStories({
       type: 'REMOVE_STORY',
       payload: item,
     })
   }
 
-  const handleSearchInput = event => {
+  const handleSearchInput = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
   }
 
-  const handleSearchSubmit = (event) => {
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     setUrl(`${API_ENDPOINT}${searchTerm}`);
     event.preventDefault();
   }
-  const searchedStories = stories.data.filter(story =>
-    story.title.toLowerCase().includes(searchTerm.toLowerCase()))
 
 
   return (
